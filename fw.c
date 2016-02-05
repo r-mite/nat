@@ -133,19 +133,21 @@ u_char* changeDest(u_char *buf, int flag){
 	struct ether_header *ptr;
 	ptr = (struct ether_header *)buf;
 	if(flag == 0){
+		//MNside
 		ptr->ether_dhost[0] = 0x08;
 		ptr->ether_dhost[1] = 0x00;
 		ptr->ether_dhost[2] = 0x27;
-		ptr->ether_dhost[3] = 0x0d;
-		ptr->ether_dhost[4] = 0x1e;
-		ptr->ether_dhost[5] = 0x79;
+		ptr->ether_dhost[3] = 0xdc;
+		ptr->ether_dhost[4] = 0x98;
+		ptr->ether_dhost[5] = 0xe3;
 	}else{
+		//HAside
 		ptr->ether_dhost[0] = 0x08;
 		ptr->ether_dhost[1] = 0x00;
 		ptr->ether_dhost[2] = 0x27;
-		ptr->ether_dhost[3] = 0x94;
-		ptr->ether_dhost[4] = 0x3a;
-		ptr->ether_dhost[5] = 0x5e;
+		ptr->ether_dhost[3] = 0x58;
+		ptr->ether_dhost[4] = 0x6b;
+		ptr->ether_dhost[5] = 0xcc;
 	}
 	return (u_char *)ptr;
 }
@@ -153,7 +155,7 @@ u_char* changeDest(u_char *buf, int flag){
 int main(){
 	int i,size,flag;
 	u_char buf[65535];
-	char *dev[2] ={"eth2","eth3"};
+	char *dev[2] ={"eth3","eth4"};
 	struct pollfd iflist[2];
 	int packet_num = 0;
 
@@ -161,6 +163,8 @@ int main(){
 		iflist[i].fd=initRawSocket(dev[i]);
 		iflist[i].events = POLLIN;
 	}
+
+	printf("listen.\n");
 
 	while(1){
 		switch(poll(iflist,2,100)){

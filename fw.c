@@ -80,18 +80,20 @@ int analyzePacket(u_char *buf){
 	u_char *ptr;
 	struct ether_header *eth;
 	struct iphdr *ip;
-	printEtherHeader(buf);
+	//printEtherHeader(buf);
 	ptr = buf;
 	eth = (struct ether_header *)ptr;
 	ptr += sizeof(struct ether_header);
 	ip = (struct iphdr *)ptr;
 	switch(ntohs(eth->ether_type)){
 	case ETH_P_IP:
+		/*
 		printIPHeader(ptr);
 		if(ip->protocol==6){
 			 ptr+=((struct iphdr *)ptr)->ihl*4;
 			 printTcpHeader(ptr);
 		}
+		*/
 		//return 0;
 		break;
 	case ETH_P_IPV6:
@@ -132,22 +134,13 @@ int initRawSocket(char *dev){
 u_char* changeDest(u_char *buf, int flag){
 	struct ether_header *ptr;
 	ptr = (struct ether_header *)buf;
-	if(flag == 0){
-		//MNside
-		ptr->ether_dhost[0] = 0x08;
-		ptr->ether_dhost[1] = 0x00;
-		ptr->ether_dhost[2] = 0x27;
-		ptr->ether_dhost[3] = 0xdc;
-		ptr->ether_dhost[4] = 0x98;
-		ptr->ether_dhost[5] = 0xe3;
-	}else{
-		//HAside
-		ptr->ether_dhost[0] = 0x08;
-		ptr->ether_dhost[1] = 0x00;
-		ptr->ether_dhost[2] = 0x27;
-		ptr->ether_dhost[3] = 0x58;
-		ptr->ether_dhost[4] = 0x6b;
-		ptr->ether_dhost[5] = 0xcc;
+	u_int8_t host[2][6] = {
+		{0x08, 0x00, 0x27, 0xdc, 0x98, 0xe3},
+		{0x08, 0x00, 0x27, 0x58, 0x6b, 0xcc}
+	};
+	int i;
+	for(i=0; i<sizeof(host[0])/sizeof(host[0][0]); i++){
+		ptr->ether_dhost[i] = host[flag][i];
 	}
 	return (u_char *)ptr;
 }

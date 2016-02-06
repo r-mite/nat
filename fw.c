@@ -38,7 +38,7 @@ char *ip6_ntoa(struct in6_addr ip6) {
 	return str;
 }
 
-struct in6_addr ip6_aton(char str) {
+struct in6_addr ip6_aton(char *str) {
 	struct in6_addr ip6;
 	if (inet_pton(AF_INET6, str, &ip6) == NULL) {
 		perror("inet_pton");

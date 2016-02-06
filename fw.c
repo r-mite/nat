@@ -9,6 +9,8 @@
 #include <netpacket/packet.h> //struct sockaddr_ll
 #include <poll.h>
 
+#include <netinet6/ip6.h>
+
 char *ip_ntoa(u_int32_t ip) {
 	u_char *d = (u_char *)&ip;
 	static char str[15];

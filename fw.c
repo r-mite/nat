@@ -32,17 +32,13 @@ char *ip_ntoa2(u_char *d) {
 
 char *ip6_ntoa(struct in6_addr ip6) {
 	static char str[INET6_ADDRSTRLEN];
-	if (inet_ntop(AF_INET6, ip6, str, INET6_ADDRSTRLEN) == NULL) {
-		perror("inet_ntop");
-	}
+	inet_ntop(AF_INET6, &ip6, str, INET6_ADDRSTRLEN);
 	return str;
 }
 
 struct in6_addr ip6_aton(char *str) {
 	struct in6_addr ip6;
-	if (inet_pton(AF_INET6, str, ip6) == NULL) {
-		perror("inet_pton");
-	}
+	inet_pton(AF_INET6, str, &ip6);
 	return ip6;
 }
 

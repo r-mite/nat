@@ -31,6 +31,7 @@ char *ip_ntoa2(u_char *d) {
 }
 
 char *ip6_ntoa(struct in6_addr ip6) {
+	/*
 	u_char *d = (u_char *)ip6;
 	static char str[63];
 	sprintf(str, "%d%d%d%d:%d%d%d%d:%d%d%d%d:%d%d%d%d",
@@ -38,6 +39,9 @@ char *ip6_ntoa(struct in6_addr ip6) {
 		d[4], d[5], d[6], d[7],
 		d[8], d[9], d[10], d[11],
 		d[12], d[13], d[14], d[15]);
+	*/
+	char str[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, ip6, str, INET6_ADDRSTRLEN);
 	return str;
 }
 

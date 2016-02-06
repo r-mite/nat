@@ -31,21 +31,19 @@ char *ip_ntoa2(u_char *d) {
 }
 
 char *ip6_ntoa(struct in6_addr ip6) {
-	/*
-	u_char *d = (u_char *)ip6;
-	static char str[63];
-	sprintf(str, "%d%d%d%d:%d%d%d%d:%d%d%d%d:%d%d%d%d",
-		d[0], d[1], d[2], d[3],
-		d[4], d[5], d[6], d[7],
-		d[8], d[9], d[10], d[11],
-		d[12], d[13], d[14], d[15]);
-	*/
 	static char str[INET6_ADDRSTRLEN];
 	if (inet_ntop(AF_INET6, &ip6, str, INET6_ADDRSTRLEN) == NULL) {
 		perror("inet_ntop");
-		//exit(EXIT_FAILURE);
 	}
 	return str;
+}
+
+struct in6_addr ip6_aton(char str) {
+	struct in6_addr ip6;
+	if (inet_pton(AF_INET6, str, &ip6) == NULL) {
+		perror("inet_pton");
+	}
+	return ip6;
 }
 
 void printEtherHeader(u_char *buf) {
@@ -158,6 +156,23 @@ int initRawSocket(char *dev) {
 	ifr.ifr_flags |= IFF_PROMISC; //promisc オプションを付加
 	ioctl(soc, SIOCSIFFLAGS, &ifr); //ifrの情報を設定
 	return soc;
+}
+
+u_char* changeIP6SD(u_char *buf, int flag) {
+	struct ip6_hdr *ptr;
+	buf += sizeof(struct ether_header);
+	ptr = (struct ip6_hdr *)buf;
+	char *sd[2];
+	sprintf(sd[0], "2001:a00:27ff:fe");
+	sprintf(sd[1], "2001:1000");
+	if (flag == 0) {
+		ptr->ip6_src = ip6_aton(sd[0]);
+	}
+	else {
+		ptr->ip6_dst = ip6_aton(sd[1]);
+	}
+	ptr -= sizeof(struct ether_header);
+	return (u_char *)ptr;
 }
 
 u_char* changeDest(u_char *buf, int flag) {

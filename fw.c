@@ -10,6 +10,7 @@
 #include <poll.h>
 
 #include <netinet/ip6.h>
+#include <netinet/ip_icmp.h>
 
 char *ip_ntoa(u_int32_t ip) {
 	u_char *d = (u_char *)&ip;
@@ -96,6 +97,31 @@ void printIP6Header(u_char *buf) {
 	printf("---------- IPv6 ----------\n");
 	printf("src addr=%s\n", ip6_ntoa(ptr->ip6_src));
 	printf("dst addr=%s\n", ip6_ntoa(ptr->ip6_dst));
+}
+
+int checkICMPv6(u_char *buf) {
+	struct ip6_hdr *ptr;
+	ptr = (struct ip6_hdr *)buf;
+	if (ptr->ip6_un1_nxt == 0x3A) {
+		printf("icmp!\n");
+		//icmpタイプチェック
+		ptr += sizeof(struct ip6_hdr);
+		struct icmp *icmp_ptr;
+		icmp_ptr = (struct icmp *)ptr;
+		if (ptr->icmp_type == 0x85) {
+			printf("soliciation!\n");
+			//
+		}else if (ptr->icmp_type == 0x86) {
+			printf("advertise!\n");
+			//srcチェック
+			ptr -= sizeof(struct ip6_hdr);
+			if (strcmp(ip6_ntoa(ptr->ip6_src), "2001::1000") == 0) {
+				//一致していたら
+				return 0;
+			}
+		}
+	}
+	return 1;
 }
 
 int analyzePacket(u_char *buf) {

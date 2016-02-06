@@ -41,9 +41,9 @@ char *ip6_ntoa(struct in6_addr ip6) {
 		d[12], d[13], d[14], d[15]);
 	*/
 	static char str[INET6_ADDRSTRLEN];
-	if (inet_ntop(AF_INET6, ip6, str, INET6_ADDRSTRLEN) == NULL) {
+	if (inet_ntop(AF_INET6, &ip6, str, INET6_ADDRSTRLEN) == NULL) {
 		perror("inet_ntop");
-		exit(EXIT_FAILURE);
+		//exit(EXIT_FAILURE);
 	}
 	return str;
 }

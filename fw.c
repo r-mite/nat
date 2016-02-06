@@ -30,8 +30,8 @@ char *ip_ntoa2(u_char *d) {
 	return str;
 }
 
-char *ip6_ntoa(u_int32_t *ip) {
-	u_char *d = (u_char *)ip;
+char *ip6_ntoa(struct in6_addr ip6) {
+	u_char *d = (u_char *)ip6;
 	static char str[63];
 	sprintf(str, "%d%d%d%d:%d%d%d%d:%d%d%d%d:%d%d%d%d",
 		d[0], d[1], d[2], d[3],

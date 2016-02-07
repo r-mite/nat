@@ -187,7 +187,7 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	struct ip6_hdr *ptr;
 	buf += sizeof(struct ether_header);
 	ptr = (struct ip6_hdr *)buf;
-	char* sd1, sd2;
+	char *sd1, *sd2;
 	sprintf(sd1, "2002::a00:27ff:fea9:d6a1");
 	sprintf(sd2, "2001::1000");
 	if (flag == 0) {

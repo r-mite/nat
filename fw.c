@@ -115,7 +115,8 @@ int checkICMPv6(u_char *buf) {
 			printf("advertise!\n");
 			//srcチェック
 			ptr -= sizeof(struct ip6_hdr);
-			if (strcmp(ip6_ntoa(ptr->ip6_src), "2001::1000") == 0) {
+			if (strcmp(ip6_ntoa(ptr->ip6_src), "2001::1000") == 0　||
+				strcmp(ip6_ntoa(ptr->ip6_src), "fe80::a00:27ff:fe58:6bcc") == 0) {
 				//一致していたら
 				return 0;
 			}

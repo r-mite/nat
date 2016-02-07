@@ -193,12 +193,12 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	if (flag == 0) {
 		ptr->ip6_src = ip6_aton(sd[0]);
 		//printf("src addr=%s\n", ip6_ntoa(ptr->ip6_src));
-		printf("src addr=%s\n", ip6_ntoa(ip6_aton(sd[0])));
+		//printf("src addr=%s\n", ip6_ntoa(ip6_aton(sd[0])));
 	}
 	else {
 		ptr->ip6_dst = ip6_aton(sd[1]);
 		//printf("dst addr=%s\n", ip6_ntoa(ptr->ip6_dst));
-		printf("dst addr=%s\n", ip6_ntoa(ip6_aton(sd[1])));
+		//printf("dst addr=%s\n", ip6_ntoa(ip6_aton(sd[1])));
 	}
 	ptr -= sizeof(struct ether_header);
 	return (u_char *)ptr;

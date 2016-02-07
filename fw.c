@@ -188,8 +188,8 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	buf += sizeof(struct ether_header);
 	ptr = (struct ip6_hdr *)buf;
 	char *sd[2];
-	sprintf(sd[0], "2002:a00:27ff:fea9:d6a1");
-	sprintf(sd[1], "2001:1000");
+	sprintf(sd[0], "2002::a00:27ff:fea9:d6a1");
+	sprintf(sd[1], "2001::1000");
 	if (flag == 0) {
 		ptr->ip6_src = ip6_aton(sd[0]);
 	}

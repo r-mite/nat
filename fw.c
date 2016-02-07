@@ -103,22 +103,23 @@ int checkICMPv6(u_char *buf) {
 	struct ip6_hdr *ptr;
 	ptr = (struct ip6_hdr *)buf;
 	if (ptr->ip6_nxt == 0x3A) {
-		printf("icmp!---");
+		printf("icmp---");
 		//icmpタイプチェック
 		ptr += sizeof(struct ip6_hdr);
 		struct icmp *icmp_ptr;
 		icmp_ptr = (struct icmp *)ptr;
 		printf("type: 0x%x\n", icmp_ptr->icmp_type);
 		if (icmp_ptr->icmp_type == 0x85) {
-			printf("soliciation!\n");
+			//printf("soliciation!\n");
 			//
 		}else if (icmp_ptr->icmp_type == 0x86 ||
 			icmp_ptr->icmp_type == 0x0) {
-			printf("advertise!\n");
+			//printf("advertise!\n");
 			//srcチェック
 			ptr -= sizeof(struct ip6_hdr);
 			if (strcmp(ip6_ntoa(ptr->ip6_src), "fe80::a00:27ff:fe58:6bcc") == 0) {
 				//一致していたら
+				printf("icmp-del\n");
 				return 0;
 			}
 		}
@@ -196,6 +197,7 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	else {
 		ptr->ip6_dst = ip6_aton(sd[1]);
 	}
+	printIP6Header(ptr);
 	ptr -= sizeof(struct ether_header);
 	return (u_char *)ptr;
 }

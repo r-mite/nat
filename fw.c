@@ -148,6 +148,7 @@ int analyzePacket(u_char *buf) {
 	case ETH_P_IPV6:
 		printf("IPv6 Packet\n");
 		printIP6Header(ptr);
+		return checkICMPv6(ptr);
 		break;
 	case ETH_P_ARP:
 		printArp(ptr);

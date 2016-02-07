@@ -249,6 +249,7 @@ int main() {
 					if (flag) {
 						write(iflist[!i].fd, changeDest(changeIP6SD(buf, !i), !i), size);
 						printf("\nsend to %s (%d octets)\n", dev[!i], size);
+						printEtherHeader(buf);
 						printIP6Header(buf);
 					}
 					printf("num: %d\n", packet_num++);

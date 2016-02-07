@@ -112,12 +112,12 @@ int checkICMPv6(u_char *buf) {
 		if (icmp_ptr->icmp_type == 0x85) {
 			printf("soliciation!\n");
 			//
-		}else if (icmp_ptr->icmp_type == 0x86) {
+		}else if (icmp_ptr->icmp_type == 0x86 ||
+			icmp_ptr->icmp_type == 0x0) {
 			printf("advertise!\n");
 			//srcチェック
 			ptr -= sizeof(struct ip6_hdr);
-			if (strcmp(ip6_ntoa(ptr->ip6_src), "2001::1000") == 0 ||
-				strcmp(ip6_ntoa(ptr->ip6_src), "fe80::a00:27ff:fe58:6bcc") == 0) {
+			if (strcmp(ip6_ntoa(ptr->ip6_src), "fe80::a00:27ff:fe58:6bcc") == 0) {
 				//一致していたら
 				return 0;
 			}

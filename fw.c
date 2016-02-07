@@ -188,7 +188,7 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	buf += sizeof(struct ether_header);
 	ptr = (struct ip6_hdr *)buf;
 	char *sd[2];
-	sprintf(sd[0], "2001:a00:27ff:fe");
+	sprintf(sd[0], "2002:a00:27ff:fea9:d6a1");
 	sprintf(sd[1], "2001:1000");
 	if (flag == 0) {
 		ptr->ip6_src = ip6_aton(sd[0]);
@@ -216,7 +216,7 @@ u_char* changeDest(u_char *buf, int flag) {
 
 int main() {
 	int i, size, flag;
-	u_char buf[65535];
+	u_char buf[65535], bufv6[65535];
 	char *dev[2] = { "eth3","eth4" };
 	struct pollfd iflist[2];
 	int packet_num = 0;
@@ -242,7 +242,8 @@ int main() {
 					printf("recv from %s (%d octets)\n", dev[i], size);
 					flag = analyzePacket(buf);
 					if (flag) {
-						write(iflist[!i].fd, changeDest(buf, !i), size);
+						bufv6 = changeIP6SD(buf, !i);
+						write(iflist[!i].fd, changeDest(bufv6, !i), size);
 						printf("send to %s (%d octets)\n", dev[!i], size);
 					}
 					printf("num: %d\n", packet_num++);

@@ -103,11 +103,12 @@ int checkICMPv6(u_char *buf) {
 	struct ip6_hdr *ptr;
 	ptr = (struct ip6_hdr *)buf;
 	if (ptr->ip6_nxt == 0x3A) {
-		printf("icmp!\n");
+		printf("icmp!---");
 		//icmpタイプチェック
 		ptr += sizeof(struct ip6_hdr);
 		struct icmp *icmp_ptr;
 		icmp_ptr = (struct icmp *)ptr;
+		printf("type: 0x%x\n", icmp_ptr->icmp_type);
 		if (icmp_ptr->icmp_type == 0x85) {
 			printf("soliciation!\n");
 			//

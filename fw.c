@@ -216,7 +216,8 @@ u_char* changeDest(u_char *buf, int flag) {
 
 int main() {
 	int i, size, flag;
-	u_char buf[65535], bufv6[65535];
+	u_char buf[65535];
+	u_char *bufv6;
 	char *dev[2] = { "eth3","eth4" };
 	struct pollfd iflist[2];
 	int packet_num = 0;

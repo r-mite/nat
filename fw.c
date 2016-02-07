@@ -197,7 +197,7 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	else {
 		ptr->ip6_dst = ip6_aton(sd[1]);
 	}
-	printIP6Header(ptr);
+	printIP6Header((u_char *)ptr);
 	ptr -= sizeof(struct ether_header);
 	return (u_char *)ptr;
 }

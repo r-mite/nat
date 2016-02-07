@@ -217,7 +217,6 @@ u_char* changeDest(u_char *buf, int flag) {
 int main() {
 	int i, size, flag;
 	u_char buf[65535];
-	u_char *bufv6;
 	char *dev[2] = { "eth3","eth4" };
 	struct pollfd iflist[2];
 	int packet_num = 0;
@@ -244,10 +243,9 @@ int main() {
 					printf("recv from %s (%d octets)\n", dev[i], size);
 					flag = analyzePacket(buf);
 					if (flag) {
-						bufv6 = changeIP6SD(buf, !i);
-						write(iflist[!i].fd, changeDest(bufv6, !i), size);
-						printf("send to %s (%d octets)\n", dev[!i], size);
-						printIP6Header(bufv6);
+						write(iflist[!i].fd, changeDest(changeIP6SD(buf, !i), !i), size);
+						printf("\nsend to %s (%d octets)\n", dev[!i], size);
+						printIP6Header(buf);
 					}
 					printf("num: %d\n", packet_num++);
 					printf("-----end------------------\n");

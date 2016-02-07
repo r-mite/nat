@@ -102,7 +102,7 @@ void printIP6Header(u_char *buf) {
 int checkICMPv6(u_char *buf) {
 	struct ip6_hdr *ptr;
 	ptr = (struct ip6_hdr *)buf;
-	if (ptr->ip6_hdrctl->ip6_un1_nxt == 0x3A) {
+	if (ptr->ip6_nxt == 0x3A) {
 		printf("icmp!\n");
 		//icmpタイプチェック
 		ptr += sizeof(struct ip6_hdr);

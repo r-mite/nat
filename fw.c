@@ -94,10 +94,8 @@ void printTcpHeader(u_char *buf) {
 void printIP6Header(u_char *buf) {
 	struct ip6_hdr *ptr;
 	ptr = (struct ip6_hdr *)buf;
-	printf("----- IPv6 -----\n");
-	printf("-src addr=%s\n", ip6_ntoa(ptr->ip6_src));
-	printf("-dst addr=%s\n", ip6_ntoa(ptr->ip6_dst));
-	printf("-----\n");
+	printf("src addr=%s\n", ip6_ntoa(ptr->ip6_src));
+	printf("dst addr=%s\n", ip6_ntoa(ptr->ip6_dst));
 }
 
 int checkICMPv6(u_char *buf) {
@@ -198,7 +196,6 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	else {
 		ptr->ip6_dst = ip6_aton(sd[1]);
 	}
-	printIP6Header((u_char *)ptr);
 	ptr -= sizeof(struct ether_header);
 	return (u_char *)ptr;
 }
@@ -250,6 +247,7 @@ int main() {
 						bufv6 = changeIP6SD(buf, !i);
 						write(iflist[!i].fd, changeDest(bufv6, !i), size);
 						printf("send to %s (%d octets)\n", dev[!i], size);
+						printIP6Header(bufv6);
 					}
 					printf("num: %d\n", packet_num++);
 					printf("-----end------------------\n");

@@ -108,10 +108,10 @@ int checkICMPv6(u_char *buf) {
 		ptr += sizeof(struct ip6_hdr);
 		struct icmp *icmp_ptr;
 		icmp_ptr = (struct icmp *)ptr;
-		if (ptr->icmp_type == 0x85) {
+		if (icmp_ptr->icmp_type == 0x85) {
 			printf("soliciation!\n");
 			//
-		}else if (ptr->icmp_type == 0x86) {
+		}else if (icmp_ptr->icmp_type == 0x86) {
 			printf("advertise!\n");
 			//srcチェック
 			ptr -= sizeof(struct ip6_hdr);

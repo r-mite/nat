@@ -187,16 +187,16 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	struct ip6_hdr *ptr;
 	buf += sizeof(struct ether_header);
 	ptr = (struct ip6_hdr *)buf;
-	char *sd[2];
-	sprintf(sd[0], "2002::a00:27ff:fea9:d6a1");
-	sprintf(sd[1], "2001::1000");
+	char* sd1, sd2;
+	sprintf(sd1, "2002::a00:27ff:fea9:d6a1");
+	sprintf(sd2, "2001::1000");
 	if (flag == 0) {
-		ptr->ip6_src = ip6_aton(sd[0]);
+		ptr->ip6_src = ip6_aton(sd1);
 		//printf("src addr=%s\n", ip6_ntoa(ptr->ip6_src));
 		//printf("src addr=%s\n", ip6_ntoa(ip6_aton(sd[0])));
 	}
 	else {
-		ptr->ip6_dst = ip6_aton(sd[1]);
+		ptr->ip6_dst = ip6_aton(sd2);
 		//printf("dst addr=%s\n", ip6_ntoa(ptr->ip6_dst));
 		//printf("dst addr=%s\n", ip6_ntoa(ip6_aton(sd[1])));
 	}

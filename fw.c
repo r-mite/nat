@@ -184,24 +184,44 @@ int initRawSocket(char *dev) {
 }
 
 u_char* changeIP6SD(u_char *buf, int flag) {
-	struct ip6_hdr *ptr;
-	buf += sizeof(struct ether_header);
-	ptr = (struct ip6_hdr *)buf;
-	char *sd1, *sd2;
-	sprintf(sd1, "2002::a00:27ff:fea9:d6a1");
-	sprintf(sd2, "2001::1000");
+	u_char *ptr;
+	struct ip6_hdr *ip6_ptr;
+	ptr = buf;
+	ptr += sizeof(struct ether_header);
+	ip6_ptr = (struct ip6_hdr *)ptr;
+	u_int8_t src[16] = {
+	/*	0x20, 0x02, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0xb8, 0xb2, 0x5b, 0x13,
+		0x58, 0x0b, 0xcd, 0x8b};*/
+		0x20, 0x01, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x10, 0x01};
+	u_int8_t dst[16] = {
+		0x20, 0x01, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x10, 0x00};
+	int i;
 	if (flag == 0) {
-		ptr->ip6_src = ip6_aton(sd1);
-		//printf("src addr=%s\n", ip6_ntoa(ptr->ip6_src));
-		//printf("src addr=%s\n", ip6_ntoa(ip6_aton(sd[0])));
+		if(ip6_ptr->ip6_dst.s6_addr[15] == 0x8b)
+		for(i=0; i<16; i++){
+			ip6_ptr->ip6_src.s6_addr[i] = src[i];
+		}
+		if(ip6_ptr->ip6_dst.s6_addr[15] == 0xe3)
+		for(i=0; i<16; i++){
+			ip6_ptr->ip6_src.s6_addr[i] = src[i];
+		}
 	}
 	else {
-		ptr->ip6_dst = ip6_aton(sd2);
-		//printf("dst addr=%s\n", ip6_ntoa(ptr->ip6_dst));
-		//printf("dst addr=%s\n", ip6_ntoa(ip6_aton(sd[1])));
+		if(ip6_ptr->ip6_dst.s6_addr[15] == 0x01)
+		for(i=0; i<16; i++){
+			ip6_ptr->ip6_dst.s6_addr[i] = dst[i];
+		}
 	}
-	ptr -= sizeof(struct ether_header);
-	return (u_char *)ptr;
+	printIP6Header((u_char *)ip6_ptr);
+	return buf;
 }
 
 u_char* changeDest(u_char *buf, int flag) {
@@ -248,9 +268,9 @@ int main() {
 					flag = analyzePacket(buf);
 					if (flag) {
 						write(iflist[!i].fd, changeDest(changeIP6SD(buf, !i), !i), size);
+						//write(iflist[!i].fd, changeDest(buf, !i), size);
 						printf("\nsend to %s (%d octets)\n", dev[!i], size);
-						printEtherHeader(buf);
-						printIP6Header(buf);
+						//analyzePacket(buf);
 					}
 					printf("num: %d\n", packet_num++);
 					printf("-----end------------------\n");

@@ -12,6 +12,9 @@
 #include <netinet/ip6.h>
 #include <netinet/ip_icmp.h>
 
+#define ETHER_CHANGE 1
+#define IPV6_CHANGE 1
+
 char *ip_ntoa(u_int32_t ip) {
 	u_char *d = (u_char *)&ip;
 	static char str[15];
@@ -130,7 +133,7 @@ int analyzePacket(u_char *buf) {
 	u_char *ptr;
 	struct ether_header *eth;
 	struct iphdr *ip;
-	//printEtherHeader(buf);
+	printEtherHeader(buf);
 	ptr = buf;
 	eth = (struct ether_header *)ptr;
 	ptr += sizeof(struct ether_header);
@@ -184,57 +187,73 @@ int initRawSocket(char *dev) {
 }
 
 u_char* changeIP6SD(u_char *buf, int flag) {
+	if(!IPV6_CHANGE)return buf;
 	u_char *ptr;
 	struct ip6_hdr *ip6_ptr;
 	ptr = buf;
 	ptr += sizeof(struct ether_header);
 	ip6_ptr = (struct ip6_hdr *)ptr;
-	u_int8_t src[16] = {
-	/*	0x20, 0x02, 0x00, 0x00,
+	u_int8_t src[3][16] = {
+		{0x20, 0x02, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
-		0xb8, 0xb2, 0x5b, 0x13,
-		0x58, 0x0b, 0xcd, 0x8b};*/
-		0x20, 0x01, 0x00, 0x00,
+		0x49, 0x81, 0x20, 0xa2,
+		0x40, 0x6f, 0xc1, 0x44},
+		{0x20, 0x01, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x10, 0x01};
+		0x00, 0x00, 0x10, 0x01},
+		{0x20, 0x02, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00,
+		0x0a, 0x00, 0x27, 0xff,
+		0xfe, 0xa9, 0xd6, 0xa1}};
 	u_int8_t dst[16] = {
 		0x20, 0x01, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x10, 0x00};
 	int i;
+	printf("v6change---");
 	if (flag == 0) {
-		if(ip6_ptr->ip6_dst.s6_addr[15] == 0x8b)
-		for(i=0; i<16; i++){
-			ip6_ptr->ip6_src.s6_addr[i] = src[i];
-		}
-		if(ip6_ptr->ip6_dst.s6_addr[15] == 0xe3)
-		for(i=0; i<16; i++){
-			ip6_ptr->ip6_src.s6_addr[i] = src[i];
+		printf("out-");
+		if(ip6_ptr->ip6_src.s6_addr[15] == 0x00){
+			printf("nat");
+			for(i=0; i<16; i++){
+				ip6_ptr->ip6_src.s6_addr[i] = src[0][i];
+			}
 		}
 	}
 	else {
-		if(ip6_ptr->ip6_dst.s6_addr[15] == 0x01)
-		for(i=0; i<16; i++){
-			ip6_ptr->ip6_dst.s6_addr[i] = dst[i];
+		printf("in-");
+		if(ip6_ptr->ip6_dst.s6_addr[15] == src[0][15]){
+			printf("nat");
+			for(i=0; i<16; i++){
+				ip6_ptr->ip6_dst.s6_addr[i] = dst[i];
+			}
 		}
 	}
-	printIP6Header((u_char *)ip6_ptr);
+	printf("\n");
+	printIP6Header((u_char *)buf + sizeof(struct ether_header));
 	return buf;
 }
 
 u_char* changeDest(u_char *buf, int flag) {
+	if(!ETHER_CHANGE)return buf;
 	struct ether_header *ptr;
 	ptr = (struct ether_header *)buf;
-	u_int8_t host[2][6] = {
+	u_int8_t dhost[2][6] = {
 		{ 0x08, 0x00, 0x27, 0xdc, 0x98, 0xe3 },
 		{ 0x08, 0x00, 0x27, 0x58, 0x6b, 0xcc }
 	};
+	u_int8_t shost[2][6] = {
+		{ 0x08, 0x00, 0x27, 0xa9, 0xd6, 0xa1 },
+		{ 0x08, 0x00, 0x27, 0x05, 0x3c, 0x23 }
+	};
 	int i;
-	for (i = 0; i<sizeof(host[0]) / sizeof(host[0][0]); i++) {
-		ptr->ether_dhost[i] = host[flag][i];
+	for (i=0; i<6; i++) {
+		ptr->ether_dhost[i] = dhost[flag][i];
+		ptr->ether_shost[i] = shost[flag][i];
 	}
+	printEtherHeader(buf);
 	return (u_char *)ptr;
 }
 

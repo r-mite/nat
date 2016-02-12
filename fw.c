@@ -193,15 +193,16 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	ptr = buf;
 	ptr += sizeof(struct ether_header);
 	ip6_ptr = (struct ip6_hdr *)ptr;
+	int src_num = 1;
 	u_int8_t src[3][16] = {
 		{0x20, 0x02, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x49, 0x81, 0x20, 0xa2,
 		0x40, 0x6f, 0xc1, 0x44},
-		{0x20, 0x01, 0x00, 0x00,
+		{0x20, 0x02, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x10, 0x01},
+		0x6d, 0xb5, 0x53, 0x80,
+		0xa6, 0xa0, 0x46, 0x22},
 		{0x20, 0x02, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x0a, 0x00, 0x27, 0xff,
@@ -215,16 +216,16 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	printf("v6change---");
 	if (flag == 0) {
 		printf("out-");
-		if(ip6_ptr->ip6_src.s6_addr[15] == 0x00){
+		if(ip6_ptr->ip6_src.s6_addr[15] == dst[15]){
 			printf("nat");
 			for(i=0; i<16; i++){
-				ip6_ptr->ip6_src.s6_addr[i] = src[0][i];
+				ip6_ptr->ip6_src.s6_addr[i] = src[src_num][i];
 			}
 		}
 	}
 	else {
 		printf("in-");
-		if(ip6_ptr->ip6_dst.s6_addr[15] == src[0][15]){
+		if(ip6_ptr->ip6_dst.s6_addr[15] == src[src_num][15]){
 			printf("nat");
 			for(i=0; i<16; i++){
 				ip6_ptr->ip6_dst.s6_addr[i] = dst[i];

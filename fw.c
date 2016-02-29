@@ -11,9 +11,18 @@
 
 #include <netinet/ip6.h>
 #include <netinet/ip_icmp.h>
+#include <netinet/icmp6.h>
 
 #define ETHER_CHANGE 1
 #define IPV6_CHANGE 1
+#define CHECKSUM 1
+
+
+
+int printIP6Header2(struct ip6_hdr *ip6, FILE *fp);
+int analyzeIP6(u_char *data, int size);
+u_int16_t chacksum2(u_char *data1, int len1, u_char *data2, int len2);
+
 
 char *ip_ntoa(u_int32_t ip) {
 	u_char *d = (u_char *)&ip;
@@ -129,6 +138,109 @@ int checkICMPv6(u_char *buf) {
 	return 1;
 }
 
+int printICMP6(struct icmp6_hdr *icmp6, FILE *fp){
+	fprintf(fp, "icmp--------------------\n");
+	fprintf(fp, "icmp_type = %u,", icmp6->icmp6_type);
+	fprintf(fp, "icmp6_code = %u,", icmp6->icmp6_code);
+	fprintf(fp, "icmp6_cksum = %u\n", ntohs(icmp6->icmp6_cksum));
+
+	if(icmp6->icmp6_type == 128 || icmp6->icmp6_type == 129){
+		fprintf(fp, "icmp6_id = %u,", ntohs(icmp6->icmp6_id));
+		fprintf(fp, "icmp6_seq = %u\n", ntohs(icmp6->icmp6_seq));
+	}
+
+	return 0;
+}
+
+int printIP6Header2(struct ip6_hdr *ip6, FILE *fp){
+	fprintf(fp, "ip6--------------------\n");
+	fprintf(fp, "ip6_flow = %x,", ip6->ip6_flow);
+	fprintf(fp, "ip6_plen = %d,", ntohs(ip6->ip6_plen));
+	fprintf(fp, "ip6_nxt = %u,", ip6->ip6_nxt);
+	fprintf(fp, "ip6_hlim = %d\n", ip6->ip6_hlim);
+	fprintf(fp, "ip6_src = %s\n", ip6_ntoa(ip6->ip6_src));
+	fprintf(fp, "ip6_dst = %s\n", ip6_ntoa(ip6->ip6_dst));
+
+	return 0;
+}
+
+int analyzeICMP6(u_char *data, int size){
+	u_char *ptr;
+	int lest;
+	struct icmp6_hdr *icmp6;
+
+	ptr = data;
+	lest = size;
+
+	if(lest < sizeof(struct icmp6_hdr)){
+		fprintf(stderr, "lest(%d)<sizeof(struct icmp_hdr)\n", lest);
+		return -1;
+	}
+	icmp6 = (struct icmp6_hdr *)ptr;
+	ptr += sizeof(struct icmp6_hdr);
+	lest -= sizeof(struct icmp6_hdr);
+
+	printICMP6(icmp6, stdout);
+
+	return 0;
+}
+
+int analyzeIP6(u_char *data, int size){
+	u_char *ptr;
+	int lest;
+	struct ip6_hdr *ip6;
+	int len;
+
+	ptr = data;
+	lest = size;
+
+	if(lest < sizeof(struct ip6_hdr)){
+		fprintf(stderr, "lest(%d)<sizeof(struct ip6_hdr)\n", lest);
+		return -1;
+	}
+	ip6 = (struct ip6_hdr *)ptr;
+	ptr += sizeof(struct ip6_hdr);
+	lest -= sizeof(struct ip6_hdr);
+
+	printIP6Header2(ip6, stdout);
+
+	if(ip6->ip6_nxt == IPPROTO_ICMPV6){
+		len = ntohs(ip6->ip6_plen);
+		if(checkIP6Sum(ip6, ptr, len) == 0){
+			fprintf(stderr, "bad icmp6 checksum\n");
+			return -1;
+		}
+		analyzeICMP6(ptr, lest);
+		calcIP6Sum(ip6, ptr, len);
+		analyzeICMP6(ptr, lest);
+	}
+	return 0;
+}
+
+int analyzePacket2(u_char *data, int size){
+	u_char *ptr;
+	int lest;
+	struct ether_header *eh;
+
+	ptr = data;	
+	lest = size;
+
+	if(lest < sizeof(struct ether_header)){
+		fprintf(stderr, "lest(%d)<sizeof(struct ether_header)\n", lest);
+		return -1;
+	}
+	eh = (struct ether_header *)ptr;
+	ptr += sizeof(struct ether_header);
+	lest -= sizeof(struct ether_header);
+
+	if(ntohs(eh->ether_type) == ETHERTYPE_IPV6){
+		fprintf(stderr, "Packet[%d]bytes\n", size);
+		//printEtherHeader(eh, stdout);
+		analyzeIP6(ptr, lest);
+	}
+	return 0;
+}
+
 int analyzePacket(u_char *buf) {
 	u_char *ptr;
 	struct ether_header *eth;
@@ -186,6 +298,152 @@ int initRawSocket(char *dev) {
 	return soc;
 }
 
+struct pseudo_ip6_hdr{
+	struct in6_addr src;
+	struct in6_addr dst;
+	unsigned long plen;
+	unsigned short dmy1;
+	unsigned char dmy2;
+	unsigned char nxt;
+};
+
+u_int16_t checksum2(u_char *data1, int len1, u_char *data2, int len2){
+	register u_int32_t sum;
+	register u_int16_t *ptr;
+	register int c;
+
+	sum = 0;
+	ptr = (u_int16_t *)data1;
+	for(c=len1; c>1; c-=2){
+		sum += (*ptr);
+		if(sum&0x80000000){
+			sum = (sum&0xFFFF)+(sum>>16);
+		}
+		ptr++;
+	}
+	if(c==1){
+		u_int16_t val;
+		val = ((*ptr)<<8)+(*data2);
+		sum += val;
+		if(sum&0x80000000){
+			sum = (sum&0xFFFF)+(sum>>16);
+		}
+		ptr = (u_int16_t *)(data2+1);
+		len2--;
+	}
+	else{
+		ptr = (u_int16_t *)data2;
+	}
+	for(c=len2; c>1; c-=2){
+		sum += (*ptr);
+		if(sum&0x80000000){
+			sum = (sum&0xFFFF)+(sum>>16);
+		}
+		ptr++;
+	}
+	if(c==1){
+		u_int16_t val;
+		val = 0;
+		memcpy(&val, ptr, sizeof(u_int8_t));
+		sum += val;
+	}
+
+	while(sum>>16){
+		sum = (sum&0xFFFF)+(sum>>16);
+	}
+
+	return (~sum);
+}
+
+int calcIP6Sum(struct ip6_hdr *ip, unsigned char *data, int len){
+	struct pseudo_ip6_hdr p_ip;
+	unsigned short sum;
+
+	memset(&p_ip, 0, sizeof(struct pseudo_ip6_hdr));
+	
+	memcpy(&p_ip.src, &ip->ip6_src, sizeof(struct in6_addr));
+	memcpy(&p_ip.dst, &ip->ip6_dst, sizeof(struct in6_addr));
+	p_ip.plen = ip->ip6_plen;
+	p_ip.nxt = ip->ip6_nxt;
+
+	u_char *zerodata;
+	struct icmp6_hdr *zeroicmp;
+	zerodata = data;
+	zeroicmp = (struct icmp6_hdr *)zerodata;
+	zeroicmp->icmp6_cksum = 0;
+
+	sum = checksum2((unsigned char *)&p_ip, sizeof(struct pseudo_ip6_hdr), zerodata, len);
+	zeroicmp->icmp6_cksum = sum;
+	return 0;
+}
+
+int checkIP6Sum(struct ip6_hdr *ip, unsigned char *data, int len){
+	struct pseudo_ip6_hdr p_ip;
+	unsigned short sum;
+
+	memset(&p_ip, 0, sizeof(struct pseudo_ip6_hdr));
+	
+	memcpy(&p_ip.src, &ip->ip6_src, sizeof(struct in6_addr));
+	memcpy(&p_ip.dst, &ip->ip6_dst, sizeof(struct in6_addr));
+	p_ip.plen = ip->ip6_plen;
+	p_ip.nxt = ip->ip6_nxt;
+
+	sum = checksum2((unsigned char *)&p_ip, sizeof(struct pseudo_ip6_hdr), data, len);
+	if(sum == 0 || sum == 0xFFFF){
+		return 1;
+	}
+	else{
+		return 0;
+	}
+}
+
+u_int16_t checksumICMP6(struct in6_addr *src, struct in6_addr *dst, u_int32_t len, u_int16_t *data){  
+	u_int32_t sum = 0;
+	int i;
+
+	//ipv6
+
+	for(i=0; i<8; i++){
+		sum += ntohs(src->s6_addr16[i]);
+	}
+	for(i=0; i<8; i++){
+		sum += ntohs(dst->s6_addr16[i]);
+	}
+
+	sum += len >> 16;
+	sum += len & 0x0000FFFF;  
+	sum += IPPROTO_ICMPV6;
+
+	//icmp
+
+	for(i=0; i<len/2; i++){
+		sum += ntohs(data[i]);
+	}
+	if(len%2)
+		sum += *(u_int16_t *)&(data[i]);
+
+	//sum = (sum & 0xffff) + (sum >> 16);
+	//sum = (sum & 0xffff) + (sum >> 16);
+	return ~sum;
+}  
+
+void changeICMP6(u_char *buf){
+	u_char *ptr;
+	struct ip6_hdr *ip6_ptr;
+	ptr = buf;
+	ip6_ptr = (struct ip6_hdr *)ptr;
+	if (ip6_ptr->ip6_nxt == 0x3A) {
+		struct icmp6_hdr *icmp_ptr;
+		ptr = (u_char *)ip6_ptr;
+		ptr += sizeof(struct ip6_hdr);
+		icmp_ptr = (struct icmp6_hdr *)ptr;
+		printf("icmpchangeeeee---%x, ", ntohs(icmp_ptr->icmp6_cksum));
+		icmp_ptr->icmp6_cksum = 0;
+		icmp_ptr->icmp6_cksum = htons(checksumICMP6(&ip6_ptr->ip6_src,&ip6_ptr->ip6_dst,sizeof(struct icmp6_hdr),(u_int16_t *)icmp_ptr));
+	printf("%x\n", ntohs(icmp_ptr->icmp6_cksum));
+	}
+}
+
 u_char* changeIP6SD(u_char *buf, int flag) {
 	if(!IPV6_CHANGE)return buf;
 	u_char *ptr;
@@ -193,6 +451,8 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	ptr = buf;
 	ptr += sizeof(struct ether_header);
 	ip6_ptr = (struct ip6_hdr *)ptr;
+	if(CHECKSUM == 1)
+		changeICMP6((u_char *)ip6_ptr);
 	int src_num = 1;
 	u_int8_t src[3][16] = {
 		{0x20, 0x02, 0x00, 0x00,
@@ -201,8 +461,8 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 		0x40, 0x6f, 0xc1, 0x44},
 		{0x20, 0x02, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
-		0x6d, 0xb5, 0x53, 0x80,
-		0xa6, 0xa0, 0x46, 0x22},
+		0xf8, 0x7b, 0xd3, 0x2f,
+		0x10, 0x7d, 0x7b, 0x05},
 		{0x20, 0x02, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x0a, 0x00, 0x27, 0xff,
@@ -234,6 +494,8 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	}
 	printf("\n");
 	printIP6Header((u_char *)buf + sizeof(struct ether_header));
+//	if(CHECKSUM == 1)
+//		changeICMP6((u_char *)ip6_ptr);
 	return buf;
 }
 
@@ -285,7 +547,8 @@ int main() {
 					printf("-----packet---------------\n");
 					size = read(iflist[i].fd, buf, sizeof(buf));
 					printf("recv from %s (%d octets)\n", dev[i], size);
-					flag = analyzePacket(buf);
+					//flag = analyzePacket(buf);
+					flag = analyzePacket2(buf, size);
 					if (flag) {
 						write(iflist[!i].fd, changeDest(changeIP6SD(buf, !i), !i), size);
 						//write(iflist[!i].fd, changeDest(buf, !i), size);

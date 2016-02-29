@@ -202,6 +202,10 @@ int analyzeIP6(u_char *data, int size){
 	ptr += sizeof(struct ip6_hdr);
 	lest -= sizeof(struct ip6_hdr);
 
+	if(ip6->ip6_dst.s6_addr[0] == 0xff){
+		return 0;
+	}
+
 	printIP6Header2(ip6, stdout);
 
 	if(ip6->ip6_nxt == IPPROTO_ICMPV6){
@@ -210,9 +214,12 @@ int analyzeIP6(u_char *data, int size){
 			fprintf(stderr, "bad icmp6 checksum\n");
 			return -1;
 		}
+
+		//analyzeICMP6(ptr, lest);
+		//calcIP6Sum(ip6, ptr, len);
+		
 		analyzeICMP6(ptr, lest);
-		calcIP6Sum(ip6, ptr, len);
-		analyzeICMP6(ptr, lest);
+		return 1;
 	}
 	return 0;
 }
@@ -236,7 +243,7 @@ int analyzePacket2(u_char *data, int size){
 	if(ntohs(eh->ether_type) == ETHERTYPE_IPV6){
 		fprintf(stderr, "Packet[%d]bytes\n", size);
 		//printEtherHeader(eh, stdout);
-		analyzeIP6(ptr, lest);
+		return analyzeIP6(ptr, lest);
 	}
 	return 0;
 }
@@ -451,8 +458,8 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 	ptr = buf;
 	ptr += sizeof(struct ether_header);
 	ip6_ptr = (struct ip6_hdr *)ptr;
-	if(CHECKSUM == 1)
-		changeICMP6((u_char *)ip6_ptr);
+	//if(CHECKSUM == 1)
+	//	changeICMP6((u_char *)ip6_ptr);
 	int src_num = 1;
 	u_int8_t src[3][16] = {
 		{0x20, 0x02, 0x00, 0x00,
@@ -461,8 +468,8 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 		0x40, 0x6f, 0xc1, 0x44},
 		{0x20, 0x02, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
-		0xf8, 0x7b, 0xd3, 0x2f,
-		0x10, 0x7d, 0x7b, 0x05},
+		0x89, 0x64, 0x5e, 0xe3,
+		0x82, 0xb9, 0x7f, 0x43},
 		{0x20, 0x02, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x0a, 0x00, 0x27, 0xff,
@@ -493,7 +500,11 @@ u_char* changeIP6SD(u_char *buf, int flag) {
 		}
 	}
 	printf("\n");
-	printIP6Header((u_char *)buf + sizeof(struct ether_header));
+	
+	if(CHECKSUM == 1)
+		calcIP6Sum(ip6_ptr, (u_char *)ip6_ptr + sizeof(struct ip6_hdr), ntohs(ip6_ptr->ip6_plen));
+
+	//printIP6Header((u_char *)buf + sizeof(struct ether_header));
 //	if(CHECKSUM == 1)
 //		changeICMP6((u_char *)ip6_ptr);
 	return buf;
@@ -516,7 +527,7 @@ u_char* changeDest(u_char *buf, int flag) {
 		ptr->ether_dhost[i] = dhost[flag][i];
 		ptr->ether_shost[i] = shost[flag][i];
 	}
-	printEtherHeader(buf);
+	//printEtherHeader(buf);
 	return (u_char *)ptr;
 }
 
@@ -553,7 +564,7 @@ int main() {
 						write(iflist[!i].fd, changeDest(changeIP6SD(buf, !i), !i), size);
 						//write(iflist[!i].fd, changeDest(buf, !i), size);
 						printf("\nsend to %s (%d octets)\n", dev[!i], size);
-						//analyzePacket(buf);
+						analyzePacket2(buf, size);
 					}
 					printf("num: %d\n", packet_num++);
 					printf("-----end------------------\n");

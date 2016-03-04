@@ -140,21 +140,75 @@ int checkICMPv6(u_char *buf) {
 	return 1;
 }
 */
+/*
+struct bu_hdr{
+	u_int16_t seq;
+	u_char ahlk;
+	u_char reserve1;
+	u_char reserve2;
+	u_char reserve3;
+	u_int16_t life;
+};
+*/
+struct mobility_hdr{
+	u_int8_t payload;
+	u_int8_t len;
+	u_int8_t type;
+	u_int8_t reserve;
+	u_int16_t check;
+	union{
+		u_int16_t data16[1];
+		u_int8_t data8[2];
+	}dataun;
+};
+
+#define mobility16 dataun.data16
+#define mobility8 dataun.data8
+#define MINLEN 8;
 
 struct dstopt_hdr{
 	u_int8_t nxt;
 	u_int8_t len;
 };
 
+int printBindingUpdate(struct mobility_hdr *mob, FILE *fp){
+	u_char *bp;
+	bp = (u_char *)mob;
+	int len;
+	fprintf(fp, "binding_update--------------------\n");
+	fprintf(fp, "sequence = %u,", ntohs(mob->mobility16[0]));
+	len = MINLEN;
+	fprintf(fp, "flag = ");
+	if(bp[len] & 0xf0)fprintf(fp, " ");
+	if(bp[len] & 0x80)fprintf(fp, "A");
+	if(bp[len] & 0x40)fprintf(fp, "H");
+	if(bp[len] & 0x20)fprintf(fp, "L");
+	if(bp[len] & 0x10)fprintf(fp, "K");
+	fprintf(fp, ",");
+	len += 1;
+	len += 1;
+	fprintf(fp, "lifetime = %u\n", ntohs(bp[len]) << 2);
+	len += 2;
+	return 0;
+}
+
+int printMobility(struct mobility_hdr *mob, FILE *fp){
+	fprintf(fp, "mobility--------------------\n");
+	fprintf(fp, "pay = %u,", mob->payload);
+	fprintf(fp, "length = %u,", mob->len);
+	fprintf(fp, "type = %u,", mob->type);
+	fprintf(fp, "reserve = %u,", mob->reserve);
+	fprintf(fp, "check = %u\n", mob->check);
+	return 0;
+}
+
 int printDstOpt(struct dstopt_hdr *opt, FILE *fp){
-	//struct sockaddr_in6 *in6;
-	//in6 = (struct sockaddr_in6 *)msg->msg_name;
 	fprintf(fp, "dstopt--------------------\n");
 	fprintf(fp, "next = %u,", opt->nxt);
 	fprintf(fp, "length = %u\n", opt->len);
-
 	return 0;
 }
+
 /*
 int printMsg(struct msghdr *msg, FILE *fp){
 	struct sockaddr_in6 *in6;
@@ -165,6 +219,7 @@ int printMsg(struct msghdr *msg, FILE *fp){
 	return 0;
 }
 */
+
 int printICMP6(struct icmp6_hdr *icmp6, FILE *fp){
 	fprintf(fp, "icmp--------------------\n");
 	fprintf(fp, "icmp_type = %u,", icmp6->icmp6_type);
@@ -236,6 +291,56 @@ int analyzeMsg(u_char *data, int size){
 	return 0;
 }
 */
+
+/*
+int analyzeBindingUpdate(u_char *data, int size){
+	u_char *ptr;
+	int lest;
+	struct bu_hdr *bu;
+
+	ptr = data;
+	lest = size;
+	
+	if(lest < sizeof(struct bu_hdr)){
+		fprintf(stderr, "lest(%d)<sizeof(struct br_hdr)\n", lest);
+		return -1;
+	}
+
+	bu = (struct bu_hdr *)ptr;
+	ptr += sizeof(struct bu_hdr);
+	lest -= sizeof(struct bu_hdr);
+
+	printBindingUpdate(bu, stdout);
+
+	return 0;
+}
+*/
+
+int analyzeMobility(u_char *data, int size){
+	u_char *ptr;
+	int lest;
+	struct mobility_hdr *mob;
+
+	ptr = data;
+	lest = size;
+	
+	if(lest < sizeof(struct mobility_hdr)){
+		fprintf(stderr, "lest(%d)<sizeof(struct mobility_hdr)\n", lest);
+		return -1;
+	}
+
+	mob = (struct mobility_hdr *)ptr;
+	ptr += sizeof(struct mobility_hdr);
+	lest -= sizeof(struct mobility_hdr);
+
+	printMobility(mob, stdout);
+
+	printBindingUpdate(mob, stdout);
+	//analyzeBindingUpdate(mob, lest);
+
+	return 0;
+}
+
 int analyzeDstOpt(u_char *data, int size){
 	u_char *ptr;
 	int lest;
@@ -250,10 +355,16 @@ int analyzeDstOpt(u_char *data, int size){
 	}
 
 	opt = (struct dstopt_hdr *)ptr;
-	ptr += sizeof(struct dstopt_hdr);
-	lest -= sizeof(struct dstopt_hdr);
+	//ptr += sizeof(struct dstopt_hdr);
+	//lest -= sizeof(struct dstopt_hdr);
 
 	printDstOpt(opt, stdout);
+
+	int dstoptlen = 0;
+	dstoptlen = (int)((opt->len + 1) << 3);
+	ptr += dstoptlen;
+	lest -= dstoptlen;
+	analyzeMobility(ptr, lest);
 
 	return 0;
 }

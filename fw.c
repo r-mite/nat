@@ -171,6 +171,18 @@ struct dstopt_hdr{
 	u_int8_t len;
 };
 
+int printOption(struct mobility_hdr *mob, int len, FILE *fp){
+	u_char *bp;
+	bp = (u_char *)mob;
+	fprintf(fp, "mobility_option--------------------\n");
+	fprintf(fp, "type = %u,", bp[len]);
+	len++;
+	fprintf(fp, "length = %u\n", bp[len]);
+	len += bp[len];
+	fprintf(fp, "type = %u,", bp[len]);
+	return 0;
+}
+
 int printBindingUpdate(struct mobility_hdr *mob, FILE *fp){
 	u_char *bp;
 	bp = (u_char *)mob;
@@ -185,11 +197,10 @@ int printBindingUpdate(struct mobility_hdr *mob, FILE *fp){
 	if(bp[len] & 0x20)fprintf(fp, "L");
 	if(bp[len] & 0x10)fprintf(fp, "K");
 	fprintf(fp, ",");
-	len += 1;
-	len += 1;
-	fprintf(fp, "lifetime = %u\n", ntohs(bp[len]) << 2);
 	len += 2;
-	return 0;
+	fprintf(fp, "lifetime = %u\n", ntohs((u_int16_t)bp[len]));
+	len += 2;
+	return len;
 }
 
 int printMobility(struct mobility_hdr *mob, FILE *fp){
@@ -199,7 +210,7 @@ int printMobility(struct mobility_hdr *mob, FILE *fp){
 	fprintf(fp, "type = %u,", mob->type);
 	fprintf(fp, "reserve = %u,", mob->reserve);
 	fprintf(fp, "check = %u\n", mob->check);
-	return 0;
+	return mob->len;
 }
 
 int printDstOpt(struct dstopt_hdr *opt, FILE *fp){
@@ -333,9 +344,12 @@ int analyzeMobility(u_char *data, int size){
 	ptr += sizeof(struct mobility_hdr);
 	lest -= sizeof(struct mobility_hdr);
 
-	printMobility(mob, stdout);
+	int moblen;
+	moblen = printMobility(mob, stdout);
 
-	printBindingUpdate(mob, stdout);
+	int optlen;
+	optlen = printBindingUpdate(mob, stdout);
+	printOption(mob, optlen, stdout);
 	//analyzeBindingUpdate(mob, lest);
 
 	return 0;

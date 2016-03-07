@@ -14,10 +14,19 @@
 #include <netinet/icmp6.h>
 #include <netinet/udp.h>
 
+#include <ifaddrs.h>
+#include <sys/uio.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <netdb.h>
+
 #define ETHER_CHANGE 1
 #define IPV6_CHANGE 1
 #define CHECKSUM 1
-
+#define MOB_CHANGE 1
+#define IF_NUM "eth4"
 
 
 int printIP6Header2(struct ip6_hdr *ip6, FILE *fp);
@@ -150,6 +159,30 @@ struct bu_hdr{
 	u_int16_t life;
 };
 */
+
+
+void getifipv6addr(struct in6_addr *ip6, const char *device){
+	struct ifaddrs *if_list = NULL;
+	struct ifaddrs *ifa = NULL;
+	void *tmp = NULL;
+
+	getifaddrs(&if_list);
+	for(ifa = if_list; ifa != NULL; ifa = ifa->ifa_next){
+		if(strcmp(ifa->ifa_name, device) == 0){
+			if(!ifa->ifa_addr){
+				continue;
+			}else{
+				if(ifa->ifa_addr->sa_family == AF_INET6){
+					*ip6 = ((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
+					break;
+				}
+			}
+		}
+	}
+	freeifaddrs(if_list);
+}
+
+
 struct mobility_hdr{
 	u_int8_t payload;
 	u_int8_t len;
@@ -725,6 +758,13 @@ int calcIP6Sum(struct ip6_hdr *ip, unsigned char *data, int len, int nxt){
 		zeroudp->check = sum;
 		}
 		break;
+	case IPPROTO_DSTOPTS:
+		{
+		u_char *ptr;
+		ptr = zerodata;
+		
+		}
+		break;
 	}
 	return 0;
 }
@@ -798,7 +838,36 @@ void changeICMP6(u_char *buf){
 }
 */
 
+void changeMobility(u_char *buf){
+	if(!MOB_CHANGE)return;
+	u_char *ptr;
+	struct ip6_hdr *ip6_ptr;
+	ptr = buf;
+	ptr += sizeof(struct ether_header);
+	ip6_ptr = (struct ip6_hdr *)ptr;
+
+	if(ip6_ptr->ip6_nxt == IPPROTO_DSTOPTS){
+		ptr += sizeof(struct ip6_hdr);
+		struct dstopt_hdr *opt;
+		opt = (struct dstopt_hdr *)ptr;
+		ptr += (int)((opt->len + 1) << 3);
+		int binding = 12;
+		int option = 4;
+		ptr += binding + option;
+
+		struct in6_addr ip6;
+		getifipv6addr(&ip6, IF_NUM);
+
+		int i;
+		for(i=0; i<16; i++){
+			*ptr = ip6.s6_addr[i];
+			ptr++;
+		}
+	}
+}
+
 void changeIP6SD(u_char *buf, int flag) {
+	changeMobility(buf);
 	if(!IPV6_CHANGE)return;
 	u_char *ptr;
 	struct ip6_hdr *ip6_ptr;

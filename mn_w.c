@@ -27,12 +27,18 @@
 
 #define ETHER_CHANGE 1
 
-#define IPV6_CHANGE 0
+#define IPV6_CHANGE 1
 #define CHECKSUM 1
-#define MOB_CHANGE 0
+#define MOB_CHANGE 1
 
 #define IF_NUM "eth4"
+#define ALLCHECK 0
+#define DIFF_CHECK 1
 
+#define ALLMIN 35646
+#define ALLMAX 35647
+
+#define PRINT 0
 
 int printIP6Header2(struct ip6_hdr *ip6, FILE *fp);
 int analyzeIP6(u_char *data, int size);
@@ -43,7 +49,7 @@ u_int16_t chacksum2(u_char *data1, int len1, u_char *data2, int len2);
 double get_time(void){
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
-	return ((double)(tv.tv_sec) + (double)(tv.tv_usec) * 0.001 * 0.001);
+	return ((double)(tv.tv_sec) * 1000 + (double)(tv.tv_usec) * 0.001);
 }
 
 char *ip_ntoa(u_int32_t ip) {
@@ -601,19 +607,19 @@ int analyzeIP6(u_char *data, int size){
 		//optmob += optlen;
 		ptr += optlen;
 		printf("len = %d, opt = %d, optlen = %d, moblen = %d\n", len, opt->len, optlen, len-optlen);
-		/*
-		if(checkIP6Sum(ip6, ptr, len) == 1){
-			printf("ptr len checksum\n");
-		}
-		else*/
 		
+		if(checkIP6Sum(ip6, ptr, len) == 1){
+			printf("checksum ok\n");
+		}
+		//else
+		/*
 		if(checkIP6Sum(ip6, ptr, len-optlen) == 1){
 			printf("optmob len-opt checksum\n");
 		}
 		else{
 			printf("bad checksum\n");
 		}
-		
+		*/
 		/*
 		int i;
 		for(i=0; i<4; i++){
@@ -650,7 +656,7 @@ int analyzePacket2(u_char *data, int size){
 	lest -= sizeof(struct ether_header);
 
 	if(ntohs(eh->ether_type) == ETHERTYPE_IPV6){
-		fprintf(stderr, "Packet[%d]bytes\n", size);
+		if(PRINT)fprintf(stderr, "Packet[%d]bytes\n", size);
 		//printEtherHeader(eh, stdout);
 		return analyzeIP6(ptr, lest);
 	}
@@ -725,6 +731,15 @@ struct pseudo_ip6_hdr{
 	unsigned char nxt;
 };
 
+
+struct diff_hdr{
+	struct in6_addr src;
+	struct in6_addr dst;
+	//unsigned long plen;
+	//unsigned char nxt;
+	unsigned char coa[16];
+};
+
 u_int16_t checksum2(u_char *data1, int len1, u_char *data2, int len2){
 	register u_int32_t sum;
 	register u_int16_t *ptr;
@@ -773,7 +788,54 @@ u_int16_t checksum2(u_char *data1, int len1, u_char *data2, int len2){
 	return (~sum);
 }
 
-int calcIP6Sum(struct ip6_hdr *ip, unsigned char *data, int len, int nxt, int pattern){
+u_int16_t checksum3(u_int16_t s, u_char *data1, int len1, u_char *data2, int len2){
+	register u_int32_t sum;
+	register u_int16_t *ptr;
+	register int c;
+
+	//sum = 0;
+	sum = ~s;
+	ptr = (u_int16_t *)data1;
+	printf("len1 = %d, ", len1);
+	for(c=len1; c>1; c-=2){
+		sum += (*ptr);
+		if(sum&0x80000000){
+			sum = (sum&0xFFFF)+(sum>>16);
+		}
+		ptr++;
+	}
+/*
+	if(c==1){
+		u_int16_t val;
+		val = ((*ptr)<<8)+(*data2);
+		sum += val;
+		if(sum&0x80000000){
+			sum = (sum&0xFFFF)+(sum>>16);
+		}
+		ptr = (u_int16_t *)(data2+1);
+		len2--;
+	}
+	else{*/
+		ptr = (u_int16_t *)data2;
+	//}
+	printf("len2 = %d\n", len2);
+	for(c=len2; c>1; c-=2){
+		sum += ~(*ptr) + 1;
+		if(sum&0x80000000){
+			sum = (sum&0xFFFF)+(sum>>16);
+		}
+		//sum++;
+		ptr++;
+	}
+
+	while(sum>>16){
+		sum = (sum&0xFFFF)+(sum>>16);
+	}
+
+	return (~sum);
+}
+
+int calcIP6Sum(struct ip6_hdr *ip, unsigned char *data, int len, int nxt, struct diff_hdr *before, struct diff_hdr *after){
 	struct pseudo_ip6_hdr p_ip;
 	unsigned short sum;
 
@@ -828,30 +890,36 @@ int calcIP6Sum(struct ip6_hdr *ip, unsigned char *data, int len, int nxt, int pa
 		//zerodata += (int)((opt->len + 1) << 3);
 		struct mobility_hdr *mob;
 		mob = (struct mobility_hdr *)zerodata;
-		mob->check = 0;
-		//mob->check = ~htons(16694);
-		sum = checksum2((unsigned char *)&p_ip, sizeof(struct pseudo_ip6_hdr), zerodata, len);
-		printf("calcsum1: %u - %04x\n", sum, sum);
-		switch(pattern){
-		case 0:
+		if(!DIFF_CHECK){
+			mob->check = 0;
+			//mob->check = ~htons(16694);
+			sum = checksum2((unsigned char *)&p_ip, sizeof(struct pseudo_ip6_hdr), zerodata, len);
+			printf("calcsum1: %u - %04x\n", sum, sum);
 			sum -= 16694;
-			break;
-		case 1:
-			sum += ~16694;
-			sum += 1;
-			break;
-		case 2:
-			sum += htons(16694);
-			break;
-		case 3:
-			sum += ~htons(16694);
-			break;
+			if(sum&0x80000000){
+				sum = (sum&0xFFFF)+(sum>>16);
+			}
+			printf("calcsum2: %u - %04x\n", sum, sum);
+			mob->check = sum;
 		}
-		if(sum&0x80000000){
-			sum = (sum&0xFFFF)+(sum>>16);
+		else{
+			//sum = ~(mob->check);
+			sum = checksum3(mob->check, (unsigned char *)after, sizeof(struct diff_hdr), (unsigned char *)before, sizeof(struct diff_hdr));
+			sum += ALLMIN;
+			if(sum&0x80000000){
+				sum = (sum&0xFFFF)+(sum>>16);
+			}
+/*
+			sum += ~checksum2((unsigned char *)after, sizeof(struct diff_hdr), NULL, 0);
+			if(sum&0x80000000){
+				sum = (sum&0xFFFF)+(sum>>16);
+			}*/
+			/*sum = sum + mob->check;
+			if(sum&0x80000000){
+				sum = (sum&0xFFFF)+(sum>>16);
+			}*/
+			mob->check = sum;
 		}
-		printf("calcsum2: %u - %04x\n", sum, sum);
-		mob->check = sum;
 		}
 		break;
 	}
@@ -868,7 +936,7 @@ int checkIP6Sum(struct ip6_hdr *ip, unsigned char *data, int len){
 	memcpy(&p_ip.dst, &ip->ip6_dst, sizeof(struct in6_addr));
 
 
-	if(ip->ip6_nxt != IPPROTO_DSTOPTS){
+	//if(ip->ip6_nxt != IPPROTO_DSTOPTS){
 		p_ip.plen = ip->ip6_plen;
 		p_ip.nxt = ip->ip6_nxt;
 
@@ -876,8 +944,9 @@ int checkIP6Sum(struct ip6_hdr *ip, unsigned char *data, int len){
 		if(sum == 0 || sum == 0xFFFF){
 			return 1;
 		}
+		printf("check: %u - %04x\n", sum, sum);
 		return 0;
-	}else{
+	/*}else{
 		p_ip.plen = htonl(len);
 		p_ip.nxt = 135;
 		sum = checksum2((unsigned char *)&p_ip, sizeof(struct pseudo_ip6_hdr), data, len);
@@ -887,7 +956,7 @@ int checkIP6Sum(struct ip6_hdr *ip, unsigned char *data, int len){
 		}
 		printf("check: %u - %04x\n", sum, sum);
 		return 0;
-	}
+	}*/
 	
 }
 
@@ -940,7 +1009,38 @@ void changeICMP6(u_char *buf){
 }
 */
 
-void changeMobility(u_char *buf){
+
+u_char* changeSum(u_char *buf, int num) {
+	u_char *ptr;
+	struct ip6_hdr *ip6_ptr;
+	ptr = buf;
+	ptr += sizeof(struct ether_header);
+	ip6_ptr = (struct ip6_hdr *)ptr;
+
+	if(CHECKSUM){
+		int len = ntohs(ip6_ptr->ip6_plen);
+		ptr += sizeof(struct ip6_hdr);
+		struct dstopt_hdr *opt;
+		opt = (struct dstopt_hdr *)ptr;
+		int optlen;
+		optlen = (int)((opt->len + 1) << 3);
+		ptr += optlen;
+		struct mobility_hdr *mob;
+		mob = (struct mobility_hdr *)ptr;
+		u_int32_t sum = mob->check;
+		if(num == ALLMIN)
+		sum += num;
+		else
+		sum++;
+		if(sum&0x80000000){
+			sum = (sum&0xFFFF)+(sum>>16);
+		}
+		mob->check = (u_int16_t)sum;
+	}
+	return buf;
+}
+
+void changeMobility(u_char *buf, struct diff_hdr *before, struct diff_hdr *after){
 	if(!MOB_CHANGE)return;
 	u_char *ptr;
 	struct ip6_hdr *ip6_ptr;
@@ -962,22 +1062,41 @@ void changeMobility(u_char *buf){
 
 		int i;
 		for(i=0; i<16; i++){
+			before->coa[i] = *ptr;
 			*ptr = ip6.s6_addr[i];
+			after->coa[i] = *ptr;
 			ptr++;
 		}
 	}
 }
 
 void changeIP6SD(u_char *buf, int flag) {
-	changeMobility(buf);
+	struct diff_hdr before;
+	struct diff_hdr after;
+	
+	memset(&before, 0, sizeof(struct diff_hdr));
+	memset(&after, 0, sizeof(struct diff_hdr));
+
+	changeMobility(buf, &before, &after);
 	//if(!IPV6_CHANGE)return;
 	u_char *ptr;
 	struct ip6_hdr *ip6_ptr;
 	ptr = buf;
 	ptr += sizeof(struct ether_header);
 	ip6_ptr = (struct ip6_hdr *)ptr;
+	int i;
+	for(i=0; i<16; i++){
+		before.src.s6_addr[i] = ip6_ptr->ip6_src.s6_addr[i];
+		before.dst.s6_addr[i] = ip6_ptr->ip6_dst.s6_addr[i];
+		after.src.s6_addr[i] = ip6_ptr->ip6_src.s6_addr[i];
+		after.dst.s6_addr[i] = ip6_ptr->ip6_dst.s6_addr[i];
+	}
 
 	if(!IPV6_CHANGE && CHECKSUM){
+		/*for(i=0; i<16; i++){
+			after.src.s6_addr[i] = ip6_ptr->ip6_src.s6_addr[i];
+			after.dst.s6_addr[i] = ip6_ptr->ip6_dst.s6_addr[i];
+		}*/
 		int len = ntohs(ip6_ptr->ip6_plen);
 		ptr += sizeof(struct ip6_hdr);
 		struct dstopt_hdr *opt;
@@ -986,7 +1105,7 @@ void changeIP6SD(u_char *buf, int flag) {
 		optlen = (int)((opt->len + 1) << 3);
 		ptr += optlen;
 		//calcIP6Sum(ip6_ptr, (u_char *)ip6_ptr + sizeof(struct ip6_hdr), ntohs(ip6_ptr->ip6_plen), ip6_ptr->ip6_nxt, 3);
-		calcIP6Sum(ip6_ptr, ptr, len - optlen, ip6_ptr->ip6_nxt, 0);
+		calcIP6Sum(ip6_ptr, ptr, len - optlen, ip6_ptr->ip6_nxt, &before, &after);
 	}
 
 	if(!IPV6_CHANGE)return;
@@ -1019,7 +1138,7 @@ void changeIP6SD(u_char *buf, int flag) {
 		0x00, 0x00, 0x00, 0x00,
 		0x0a, 0x00, 0x27, 0xff,
 		0xfe, 0xa9, 0xd6, 0xa1}};
-	int i;
+
 	printf("v6change---");
 	if (flag == 0) {
 		printf("in-");
@@ -1041,11 +1160,16 @@ void changeIP6SD(u_char *buf, int flag) {
 			for(i=0; i<16; i++){
 				//my_gloval
 				ip6_ptr->ip6_src.s6_addr[i] = src[2][i];
+				after.src.s6_addr[i] = src[2][i];
 				//ip6_ptr->ip6_dst.s6_addr[i] = dst[][i];
 			}
 		//}
 	}
 	printf("\n");
+	/*for(i=0; i<16; i++){
+		after.src.s6_addr[i] = ip6_ptr->ip6_src.s6_addr[i];
+		after.dst.s6_addr[i] = ip6_ptr->ip6_dst.s6_addr[i];
+	}*/
 /*	
 	if(CHECKSUM){
 		calcIP6Sum(ip6_ptr, (u_char *)ip6_ptr + sizeof(struct ip6_hdr), ntohs(ip6_ptr->ip6_plen), ip6_ptr->ip6_nxt, 0);
@@ -1060,10 +1184,10 @@ void changeIP6SD(u_char *buf, int flag) {
 		optlen = (int)((opt->len + 1) << 3);
 		ptr += optlen;
 		if(ip6_ptr->ip6_nxt != IPPROTO_DSTOPTS){
-			calcIP6Sum(ip6_ptr, (u_char *)ip6_ptr + sizeof(struct ip6_hdr), ntohs(ip6_ptr->ip6_plen), ip6_ptr->ip6_nxt, 3);
+			calcIP6Sum(ip6_ptr, (u_char *)ip6_ptr + sizeof(struct ip6_hdr), ntohs(ip6_ptr->ip6_plen), ip6_ptr->ip6_nxt, &before, &after);
 		}
 		else{
-			calcIP6Sum(ip6_ptr, ptr, len - optlen, ip6_ptr->ip6_nxt, 0);
+			calcIP6Sum(ip6_ptr, ptr, len - optlen, ip6_ptr->ip6_nxt, &before, &after);
 		}
 	}
 }
@@ -1116,23 +1240,37 @@ int main() {
 		default:
 			for (i = 0; i<2; i++) {
 				if (iflist[i].revents&(POLLIN)) {
-					printf("-----packet---------------\n");
+					if(PRINT)printf("-----packet---------------\n");
 					size = read(iflist[i].fd, buf, sizeof(buf));
 					d0 = get_time();
-					printf("recv from %s (%d octets)\n", dev[i], size);
+					if(PRINT)printf("recv from %s (%d octets)\n", dev[i], size);
 					//flag = analyzePacket(buf);
 					flag = analyzePacket2(buf, size);
 					if (flag) {
-						//write(iflist[!i].fd, changeDest(changeIP6SD(buf, !i), !i), size);
-						write(iflist[!i].fd, changeDest(buf, !i), size);
-						d1 = get_time();
-						//write(iflist[!i].fd, changeDest(buf, !i), size);
 						printf("\nsend to %s (%d octets)\n", dev[!i], size);
-						analyzePacket2(buf, size);
+						if(!ALLCHECK){
+							write(iflist[!i].fd, changeDest(buf, !i), size);
+							analyzePacket2(buf, size);
+						}
+						else{
+							u_char *buff = changeDest(buf, !i);
+							int j;
+							for(j=ALLMIN; j<ALLMAX; j++){
+								write(iflist[!i].fd, changeSum(buff, j), size);
+							}
+							analyzePacket2(buff, size);
+						}
+						d1 = get_time();
+						//printf("\nsend to %s (%d octets)\n", dev[!i], size);
+						//analyzePacket2(buff, size);
+						printf("\ntime: %fms\n", d1 - d0);
 					}
-					printf("num: %d\n", packet_num++);
-					printf("time: %f\n", d1 - d0);
-					printf("-----end------------------\n");
+					if(PRINT){
+						printf("num: %d\n", packet_num++);
+						printf("-----end------------------\n");
+					}
+					else
+						printf(".");
 				}
 			}
 		}
